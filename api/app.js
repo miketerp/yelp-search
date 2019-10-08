@@ -6,54 +6,41 @@ const client = new elasticsearch.Client({
   log: 'trace'
 });
 
-
-let dir = '../datasets/modded-df/';
+let dir = '../datasets/can-df/';
 fs.readdir(dir, (err, filenames) => {
   if (err) {
     console.log("error stack: " + err);
-    return;
-  }
-  
-  filenames
-    .filter(name => name.endsWith(".json"))
-    .forEach((filename) => {
-      const instream = fs.createReadStream(dir + filename);
-      const outstream = new (require('stream'))();
-      const rl = readline.createInterface(instream, outstream);
+    throw err;
+  } else {
+    // returns a list of filenames b.c. spark will often break files up into pieces
+    filenames
+      .filter(name => name.endsWith(".json"))
+      .forEach((filename) => {
+        function startReadStream() {
+          const instream = fs.createReadStream(dir + filename);
+          const outstream = new (require('stream'))();
+          const rl = readline.createInterface(instream, outstream);
 
-      rl.on('line', (line) => {
-        console.log("----------------------------------------------");
+          rl.on('line', (line) => {
+            async function indexDocs() {
+              const response = await client.index({
+                index: 'yelp',
+                body: line
+              });
 
-        async function indexDocs() {
-          const response = await client.index({
-            index: 'yelp',
-            body: line
+              console.log("Finished Indexing");
+            }
+
+            indexDocs(line);
           });
 
-          console.log("Finished Indexing");
+          rl.on('close', (line) => {
+            console.log(line);
+            console.log('done reading file.');
+          });
         }
 
-        indexDocs(line);
-        console.log("----------------------------------------------");
+        setTimeout(startReadStream, 5000);
       });
-
-      rl.on('close', (line) => {
-        console.log(line);
-        console.log('done reading file.');
-      });
-      
-      // bulk import is possible too, but need to increase number of files
-      // in spark when saving df
-      /*
-      fs.readFile(dir + filename, 'utf-8', (err, content) => {
-        if (err) {
-          console.log("error stack: " + err);
-          return;
-        }
-        // do stuff here
-        console.log(content);
-      });
-      */
-    });
+  }
 });
-
