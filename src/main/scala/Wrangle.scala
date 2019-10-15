@@ -13,7 +13,7 @@ object Wrangle {
     spark.sparkContext.setLogLevel("WARN")
 
     val df = spark.read.json(args(0))
-    val newDF = df.select("name", "address", "city", "state", "postal_code", "latitude", "longitude", "stars", "review_count", "is_open", "categories", "hours")
+    val newDF = df.select("business_id", "name", "address", "city", "state", "postal_code", "latitude", "longitude", "stars", "review_count", "is_open", "categories", "hours")
     
     val canDF = newDF.filter(length($"postal_code") > 5)
     val usDF = newDF.filter(length($"postal_code") === 5)
@@ -23,6 +23,20 @@ object Wrangle {
     
     canDF.write.format("json").mode("overwrite").save(args(1) + "can-df")
     usDF.write.format("json").mode("overwrite").save(args(1) + "us-df")
+
+    val storeDF = canDF.select("address", "business_id", "categories", "city", "latitude", "longitude", "name", "postal_code", "review_count", "stars", "state")
+    val prop = new java.util.Properties
+    prop.setProperty("driver", "com.mysql.jdbc.Driver")
+    prop.setProperty("user", "root")
+    prop.setProperty("password", "??????")
+    
+    // SHOW VARIABLES WHERE Variable_name = 'port'
+    val url = "jdbc:mysql://localhost:3306/elastic?useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC"
+    val table = "yelpCanada"
+    
+    // .mode("overwrite") prevents same data being index into db
+    // but be very careful of this overwriting can be dangerous
+    storeDF.write.mode("append").jdbc(url, table, prop)
 
     spark.stop()  
   }
