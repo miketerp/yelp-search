@@ -52,8 +52,8 @@ var indexDocuments = function(val) {
 };
 
 const dirNames = [
-  'can',
-  'us'
+  //'us',
+  'can'
 ];
 
 dirNames.forEach((val) => {
