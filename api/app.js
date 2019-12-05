@@ -2,10 +2,23 @@
 
 const fs = require('fs');
 const readline = require('readline');
+const redis = require('redis');
 const elasticsearch = require('elasticsearch');
+
+const redisClient = redis.createClient('6379','127.0.0.1');
 const client = new elasticsearch.Client({
   host: 'localhost:9200',
   log: 'trace'
+});
+
+let counter = 1;
+
+redisClient.on('connect', () => {
+  console.log("redis client connected");
+});
+
+redisClient.on('error', (err) => {
+  console.log('Something went wrong ' + err);
 });
 
 var indexDocuments = function(val) {
@@ -27,22 +40,22 @@ var indexDocuments = function(val) {
             const rl = readline.createInterface(instream, outstream);
 
             rl.on('line', (line) => {
-              async function indexDocs() {
+              //async function indexDocs() {
+	      function indexDocs() {
+                /*
                 const response = await client.index({
-                  index: `yelp-${val}`,
-                  body: line
+                  index: `yelp-${val}`, body: line
                 });
-
-                console.log("Finished Indexing");
+                */
+		redisClient.set(`ES-key-${counter}`, line, 'EX', 1800);
+		counter++;
+		console.log("Finished Indexing");
               }
 
               indexDocs(line);
             });
 
-            rl.on('close', (line) => {
-              console.log(line);
-              console.log('done reading file.');
-            });
+            rl.on('close', () => console.log('done reading file...'));
           }
 
           setTimeout(startReadStream, 5000);
@@ -51,11 +64,6 @@ var indexDocuments = function(val) {
   });
 };
 
-const dirNames = [
-  //'us',
-  'can'
-];
-
-dirNames.forEach((val) => {
+[ 'us', 'can' ].forEach((val) => {
   indexDocuments(val);
 });
